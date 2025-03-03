@@ -1,0 +1,17 @@
+{
+  "plugins": [
+    {
+      "name": "Editorjs",
+      "className": "Editorjs",
+      "description": "Adds text to the editor.",
+      "path": "src/editorjs.ts",
+      "uiComponents": [
+        {
+          "name": "editorjs",
+          "type": "Button",
+          "iconPath": "theme/icons/ckeditor.svg"
+        }
+      ]
+    }
+  ]
+}
