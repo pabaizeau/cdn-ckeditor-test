@@ -200,33 +200,78 @@ const initialEditorData = {
   "version": "2.27.2"
 };
 
+// User initialization plugin
+class UsersInit {
+  constructor(editor) {
+    this.editor = editor;
+  }
+
+  static get pluginName() {
+    return 'UsersInit';
+  }
+
+  init() {
+    const users = [
+      {
+        id: '1',
+        name: 'Test User'
+      }
+    ];
+
+    const { editor } = this;
+
+    // Initialize the Users plugin with the predefined list of users.
+    editor.plugins.get('Users').addUser(users[0]);
+
+    // Set the current user.
+    editor.plugins.get('Users').defineMe(users[0].id);
+  }
+}
+
 export default function App() {
-//   const editorContainerRef = useRef<HTMLDivElement>(null);
-  const [editorData,] = useState(initialEditorData);
+  // Add refs for the collaboration UI containers
+  const editorContainerRef = useRef(null);
+  const editorRef = useRef(null);
+  const editorAnnotationsRef = useRef(null);
+  const editorRevisionHistoryRef = useRef(null);
+  const editorRevisionHistoryEditorRef = useRef(null);
+  const editorRevisionHistorySidebarRef = useRef(null);
+
+  const [editorData] = useState(initialEditorData);
   const [currentData, setCurrentData] = useState('');
+  const [isLayoutReady, setIsLayoutReady] = useState(false);
+  const [editor, setEditor] = useState(null);
 
-  const cloud = useCKEditorCloud( {
-		version: '44.2.1',
-		premium: true,
-	plugins: {
-		RoolePlugin: () => import( '../dist/browser/index.umd.js' ),
-		RoolePluginCss: () => import( '../dist/browser/index-editor.css' ),
-		checkPluginLoaded: () => {
-			console.log(window);
-			return window.RoolePlugin;
-		}
-	}
-  } );
-	if ( cloud.status === 'error' ) {
-		return <div>Error!</div>;
-	}
-
-	if ( cloud.status === 'loading' ) {
-		return <div>Loading...</div>;
-	}
+  const cloud = useCKEditorCloud({
+    version: '44.2.1',
+    premium: true,
+    plugins: {
+      RoolePlugin: () => import('../dist/browser/index.umd.js'),
+      RoolePluginCss: () => import('../dist/browser/index-editor.css'),
+      checkPluginLoaded: () => {
+        return window.RoolePlugin;
+      }
+    }
+  });
 
 
-	const {
+  useEffect(() => {
+    if (cloud.status === 'success' && !isLayoutReady) {
+      setIsLayoutReady(true);
+    }
+  }, [cloud.status]);
+
+
+
+  if (cloud.status === 'error') {
+    return <div>Error!</div>;
+  }
+
+  if (cloud.status === 'loading') {
+    return <div>Loading...</div>;
+  }
+
+  const {
     ClassicEditor,
     Autoformat,
     Bold,
@@ -257,112 +302,154 @@ export default function App() {
     TableToolbar,
     SpecialCharacters,
     SpecialCharactersEssentials,
-	} = cloud.CKEditor;
+  } = cloud.CKEditor;
 
-	const { ButtonPlugin, Editorjs, Highlight } = window.CKEditorjs;
+  // Import collaboration features from premium features
+  const {
+    Comments,
+    CommentsUI,
+    TrackChanges,
+    TrackChangesData,
+    RevisionHistory
+  } = cloud.CKEditorPremiumFeatures;
 
+  const { ButtonPlugin, Editorjs } = window.CKEditorjs;
 
   return (
     <div className="main-container">
-      <div className="editor-container">
-        <h1>Playground for testing CkEditor</h1>
-        <CKEditor
-			editor={ ClassicEditor }
-			data={ '<p>Hello world!</p>' }
-			config={{
-				licenseKey: 'eyJhbGciOiJFUzI1NiJ9.eyJleHAiOjE3NzE2MzE5OTksImp0aSI6IjA3NDYzY2E5LTQ3NjgtNDAzOC1iMTFmLWNlMTI3MzI5NWFiNyIsImxpY2Vuc2VkSG9zdHMiOlsiMTI3LjAuMC4xIiwibG9jYWxob3N0IiwiMTkyLjE2OC4qLioiLCIxMC4qLiouKiIsIjE3Mi4qLiouKiIsIioudGVzdCIsIioubG9jYWxob3N0IiwiKi5sb2NhbCJdLCJ1c2FnZUVuZHBvaW50IjoiaHR0cHM6Ly9wcm94eS1ldmVudC5ja2VkaXRvci5jb20iLCJkaXN0cmlidXRpb25DaGFubmVsIjpbImNsb3VkIiwiZHJ1cGFsIl0sIndoaXRlTGFiZWwiOnRydWUsImxpY2Vuc2VUeXBlIjoiZGV2ZWxvcG1lbnQiLCJmZWF0dXJlcyI6WyJEUlVQIiwiRE8iLCJGUCIsIlNDIiwiVE9DIiwiVFBMIiwiUE9FIiwiQ0MiLCJNRiIsIlNFRSIsIkNNVCIsIlRDIiwiUkgiXSwidmMiOiJiODU3ZTM4OSJ9.rZuMKgoqG4QcxTyjsbhPKUy_gyjfre4bwdSba-lFxPziUi0F-Ln_T2S9vtx65ggXx8Vn1HYKa3Mb4VdGRA5Jyg',
-        plugins: [
-          Autoformat,
-          Bold,
-          Italic,
-          Subscript,
-          Superscript,
-          CloudServices,
-          Essentials,
-          FindAndReplace,
-          Heading,
-          Image,
-          ImageCaption,
-          ImageStyle,
-          ImageToolbar,
-          ImageUpload,
-          ImageResize,
-          Indent,
-          Link,
-          List,
-          Paragraph,
-          PasteFromOffice,
-          TextTransformation,
-          Undo,
-          Table,
-          TableCellProperties,
-          TableColumnResize,
-          TableProperties,
-          TableToolbar,
-          SpecialCharacters,
-          SpecialCharactersEssentials,
-		  ButtonPlugin,
-		  Editorjs,
-		  Highlight,
-       ],
-	   toolbar: [
-		'undo',
-		'redo',
-		'|',
-		'editorjs',
-		'|',
-		'heading',
-		'|',
-		'bold',
-		'italic',
-		'link',
-		'code',
-		'bulletedList',
-		'numberedList',
-		'|',
-		'outdent',
-		'indent',
-		'|',
-		'uploadImage',
-		'blockQuote',
-		'insertTable',
-		'mediaEmbed',
-		'codeBlock',
-		'buttonPlugin',
-		'highlight',
-	],
-        ...{
-          initialData: JSON.stringify(editorData, null, 2),
-        }
-			}}
-      onChange={(event, editor) => {
-        const data = editor.getData();
-        try {
-          setCurrentData(JSON.stringify(JSON.parse(data), null, 2));
-        } catch (e) {
-          setCurrentData(data);
-        }
-      }}
-		/>
-        {/* {isLayoutReady && (
-          <CKEditor
-            editor={ClassicEditor}
-            config={{
-              ...editorConfig,
-              ...{
-                initialData: JSON.stringify(editorData, null, 2),
-              }
-            }}
-            onChange={(event, editor) => {
-              const data = editor.getData();
-              try {
-                setCurrentData(JSON.stringify(JSON.parse(data), null, 2));
-              } catch (e) {
-                setCurrentData(data);
-              }
-            }}
-          />
-        )} */}
+      <div className="editor-container editor-container_classic-editor editor-container_include-annotations" ref={editorContainerRef}>
+        <div className="editor-container__editor-wrapper">
+          <div className="editor-container__editor">
+            <h1>Playground for testing CkEditor</h1>
+            <div className="editor-wrapper" ref={editorRef}>
+              {isLayoutReady && (
+                <CKEditor
+                  editor={ClassicEditor}
+                  data={'<p>Hello world!</p>'}
+                  onReady={editor => {
+                    console.log('Editor is ready to use!', editor);
+                    editorRef.current = editor;
+                    setEditor(editor);
+                  }}
+                  config={{
+                    licenseKey: 'eyJhbGciOiJFUzI1NiJ9.eyJleHAiOjE3NzE2MzE5OTksImp0aSI6IjA3NDYzY2E5LTQ3NjgtNDAzOC1iMTFmLWNlMTI3MzI5NWFiNyIsImxpY2Vuc2VkSG9zdHMiOlsiMTI3LjAuMC4xIiwibG9jYWxob3N0IiwiMTkyLjE2OC4qLioiLCIxMC4qLiouKiIsIjE3Mi4qLiouKiIsIioudGVzdCIsIioubG9jYWxob3N0IiwiKi5sb2NhbCJdLCJ1c2FnZUVuZHBvaW50IjoiaHR0cHM6Ly9wcm94eS1ldmVudC5ja2VkaXRvci5jb20iLCJkaXN0cmlidXRpb25DaGFubmVsIjpbImNsb3VkIiwiZHJ1cGFsIl0sIndoaXRlTGFiZWwiOnRydWUsImxpY2Vuc2VUeXBlIjoiZGV2ZWxvcG1lbnQiLCJmZWF0dXJlcyI6WyJEUlVQIiwiRE8iLCJGUCIsIlNDIiwiVE9DIiwiVFBMIiwiUE9FIiwiQ0MiLCJNRiIsIlNFRSIsIkNNVCIsIlRDIiwiUkgiXSwidmMiOiJiODU3ZTM4OSJ9.rZuMKgoqG4QcxTyjsbhPKUy_gyjfre4bwdSba-lFxPziUi0F-Ln_T2S9vtx65ggXx8Vn1HYKa3Mb4VdGRA5Jyg',
+                    plugins: [
+                      Autoformat,
+                      Bold,
+                      Italic,
+                      Subscript,
+                      Superscript,
+                      CloudServices,
+                      Essentials,
+                      FindAndReplace,
+                      Heading,
+                      Image,
+                      ImageCaption,
+                      ImageStyle,
+                      ImageToolbar,
+                      ImageUpload,
+                      ImageResize,
+                      Indent,
+                      Link,
+                      List,
+                      Paragraph,
+                      PasteFromOffice,
+                      TextTransformation,
+                      Undo,
+                      Table,
+                      TableCellProperties,
+                      TableColumnResize,
+                      TableProperties,
+                      TableToolbar,
+                      SpecialCharacters,
+                      SpecialCharactersEssentials,
+
+                      // Your custom plugins
+                      ButtonPlugin,
+                      Editorjs,
+
+                      // Collaboration plugins
+                      Comments,
+                      CommentsUI,
+                      TrackChanges,
+                      TrackChangesData,
+                      RevisionHistory,
+                      UsersInit,
+                    ],
+                    toolbar: [
+                      'undo',
+                      'redo',
+                      '|',
+                      'revisionHistory',
+                      'trackChanges',
+                      'comment',
+                      'commentsArchive',
+                      '|',
+                      'editorjs',
+                      'heading',
+                      '|',
+                      'bold',
+                      'italic',
+                      'link',
+                      'code',
+                      'bulletedList',
+                      'numberedList',
+                      '|',
+                      'outdent',
+                      'indent',
+                      '|',
+                      'uploadImage',
+                      'blockQuote',
+                      'insertTable',
+                      'mediaEmbed',
+                      'codeBlock',
+                      'buttonPlugin',
+                      'highlight'
+                    ],
+                    comments: {
+                      editorConfig: {
+                        extraPlugins: [Bold, Italic, Autoformat]
+                      }
+                    },
+                    revisionHistory: {
+                      editorContainer: editorContainerRef.current,
+                      viewerContainer: editorRevisionHistoryRef.current,
+                      viewerEditorElement: editorRevisionHistoryEditorRef.current,
+                      viewerSidebarContainer: editorRevisionHistorySidebarRef.current
+                    },
+                    sidebar: {
+                      container: editorAnnotationsRef.current
+                    },
+                    ...{
+                      initialData: JSON.stringify(editorData, null, 2)
+                    }
+                  }}
+                  onChange={(event, editor) => {
+                    const data = editor.getData();
+                    try {
+                      setCurrentData(JSON.stringify(JSON.parse(data), null, 2));
+                    } catch (e) {
+                      setCurrentData(data);
+                    }
+                  }}
+                  onError={(error, { willEditorRestart }) => {
+                    // Log any initialization errors
+                    console.error('Editor error:', error);
+                  }}
+                />
+              )}
+            </div>
+          </div>
+          <div className="editor-container__sidebar">
+            <div ref={editorAnnotationsRef}></div>
+          </div>
+        </div>
+      </div>
+      <div className="revision-history" ref={editorRevisionHistoryRef}>
+        <div className="revision-history__wrapper">
+          <div className="revision-history__editor" ref={editorRevisionHistoryEditorRef}></div>
+          <div className="revision-history__sidebar" ref={editorRevisionHistorySidebarRef}></div>
+        </div>
       </div>
       <div className="output">
         <h2>Output</h2>

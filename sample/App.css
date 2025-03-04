@@ -36,3 +36,61 @@ pre.json-output {
 	white-space: pre; /* Maintains whitespace and formatting of block content */
 	min-width: 0; /* Allows the element to shrink below its minimum content size */
 }
+
+.editor-container_include-annotations {
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-container__editor-wrapper {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+}
+
+.editor-container__editor {
+  flex-grow: 1;
+}
+
+.editor-container__sidebar {
+  width: 320px;
+  padding-left: 20px;
+}
+
+.editor-container__sidebar.narrow {
+  width: 260px;
+}
+
+.editor-container__sidebar.hidden {
+  display: none;
+}
+
+.revision-history {
+  display: none;
+  height: 100%;
+  width: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  background: white;
+  z-index: 100;
+}
+
+.revision-history__wrapper {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+.revision-history__editor {
+  flex-grow: 1;
+}
+
+.revision-history__sidebar {
+  width: 320px;
+  border-left: 1px solid #c4c4c4;
+}
+
+.ck-comment__input-wrapper {
+  min-width: 100px;
+}
