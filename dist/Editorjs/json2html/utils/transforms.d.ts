@@ -1,0 +1,20 @@
+import { HeaderBlock, ListBlock, ParagraphBlock, TableBlock, LinkToolBlock, QuoteBlock, ImageBlock, MediaEmbedBlock, HighlightBlock, ImageContainerBlock } from "../../../types/index.js";
+import { ButtonPluginBlock } from "../../../types/buttonPlugin.js";
+export type transforms = {
+    [key: string]: any;
+    paragraph(block: ParagraphBlock): string;
+    headerH2(block: HeaderBlock): string;
+    headerH3(block: HeaderBlock): string;
+    unorderedList(block: ListBlock): string;
+    orderedList(block: ListBlock): string;
+    table(block: TableBlock): string;
+    linkTool(block: LinkToolBlock): string;
+    quote(block: QuoteBlock): string;
+    image(block: ImageBlock): string;
+    imageContainer(block: ImageContainerBlock): string;
+    highlight(block: HighlightBlock): string;
+    embed(block: MediaEmbedBlock): string;
+    buttonPlugin(block: ButtonPluginBlock): string;
+};
+declare const transforms: transforms;
+export default transforms;
