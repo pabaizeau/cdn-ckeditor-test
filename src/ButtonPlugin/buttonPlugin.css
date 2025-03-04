@@ -1,0 +1,51 @@
+.ck.ck-button-plugin-form {
+  padding: var(--ck-spacing-small);
+  text-align: end;
+}
+
+.ck.ck-labeled-field-view {
+margin: 10px;
+}
+
+.button-plugin {
+  margin: 12px;
+  padding: 8px;
+}
+
+.button-plugin-container {
+  text-align: center;
+  display: flex;
+  justify-content: center;
+}
+
+.button-plugin-content {
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  justify-content: center;
+}
+
+.button-plugin-title {
+  font-size: 16px;
+  line-height: 1.5em;
+  display: block;
+  padding: 8px 24px;
+  cursor: pointer;
+  border-radius: 24px;
+  color: black;
+  background: #FFD100;
+  will-change: filter;
+  width: fit-content;
+}
+
+.button-plugin-anchor {
+  display: block;
+  font-size: 12px;
+  line-height: 1em;
+  color: #888;
+  border: 0;
+  padding: 0;
+  margin-top: 8px;
+}
