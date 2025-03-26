@@ -2536,11 +2536,11 @@ function renderComment(elem) {
             if (href) {
                 entry.link = href;
             }
-            const description = fetch("summary", children) || fetch("content", children);
+            const description = fetch$1("summary", children) || fetch$1("content", children);
             if (description) {
                 entry.description = description;
             }
-            const pubDate = fetch("updated", children);
+            const pubDate = fetch$1("updated", children);
             if (pubDate) {
                 entry.pubDate = new Date(pubDate);
             }
@@ -2554,7 +2554,7 @@ function renderComment(elem) {
         feed.link = href;
     }
     addConditionally(feed, "description", "subtitle", childs);
-    const updated = fetch("updated", childs);
+    const updated = fetch$1("updated", childs);
     if (updated) {
         feed.updated = new Date(updated);
     }
@@ -2581,7 +2581,7 @@ function renderComment(elem) {
             addConditionally(entry, "title", "title", children);
             addConditionally(entry, "link", "link", children);
             addConditionally(entry, "description", "description", children);
-            const pubDate = fetch("pubDate", children) || fetch("dc:date", children);
+            const pubDate = fetch$1("pubDate", children) || fetch$1("dc:date", children);
             if (pubDate) entry.pubDate = new Date(pubDate);
             return entry;
         })
@@ -2589,7 +2589,7 @@ function renderComment(elem) {
     addConditionally(feed, "title", "title", childs);
     addConditionally(feed, "link", "link", childs);
     addConditionally(feed, "description", "description", childs);
-    const updated = fetch("lastBuildDate", childs);
+    const updated = fetch$1("lastBuildDate", childs);
     if (updated) {
         feed.updated = new Date(updated);
     }
@@ -2655,7 +2655,7 @@ const MEDIA_KEYS_INT = [
  * @param where Node to search in.
  * @param recurse Whether to recurse into child nodes.
  * @returns The text content of the element.
- */ function fetch(tagName, where, recurse = false) {
+ */ function fetch$1(tagName, where, recurse = false) {
     return textContent(getElementsByTagName(tagName, where, recurse, 1)).trim();
 }
 /**
@@ -2667,7 +2667,7 @@ const MEDIA_KEYS_INT = [
  * @param where Element to search for the property
  * @param recurse Whether to recurse into child nodes.
  */ function addConditionally(obj, prop, tagName, where, recurse = false) {
-    const val = fetch(tagName, where, recurse);
+    const val = fetch$1(tagName, where, recurse);
     if (val) obj[prop] = val;
 }
 /**
@@ -18921,77 +18921,251 @@ class Highlight extends Plugin {
 }
 
 /**
- * A plugin that implements the comments adapter integration.
- */ class CommentsIntegration extends Plugin {
+ * A plugin that implements the comments adapter integration with CKEditor Cloud Services.
+ * This allows storing and retrieving comments from CKEditor's cloud infrastructure.
+ */ class CloudServicesCommentsAdapter extends Plugin {
     /**
    * @inheritDoc
    */ static get pluginName() {
-        return 'CommentsIntegration';
+        return 'CloudServicesCommentsAdapter';
     }
     /**
    * @inheritDoc
    */ static get requires() {
         return [
-            'RooleComments'
+            'CloudServices'
         ];
     }
-    _comments;
+    _cloudServicesToken;
+    _cloudServicesUrl;
+    _commentsEndpoint;
+    _localCache;
     /**
    * @inheritDoc
    */ constructor(editor){
         super(editor);
-        this._comments = new Map();
+        this._localCache = new Map();
+        this._commentsEndpoint = 'comments';
+        this._cloudServicesToken = '';
+        this._cloudServicesUrl = '';
     }
     /**
    * @inheritDoc
-   */ init() {
+   */ async init() {
+        const editor = this.editor;
+        try {
+            // Get token and URL from config
+            const cloudServicesConfig = editor.config.get('cloudServices');
+            console.log('Cloud Services Config:', cloudServicesConfig);
+            if (!cloudServicesConfig || !cloudServicesConfig.tokenUrl) {
+                console.warn('CloudServices not properly configured. Missing tokenUrl.');
+                return Promise.resolve();
+            }
+            this._cloudServicesToken = cloudServicesConfig.tokenUrl;
+            // Construct the correct API base URL using your organization and environment IDs
+            const organizationId = 'a4d_gi5g05l6';
+            const environmentId = '0cGMGt0uxQfN8gFSt-Rk';
+            this._cloudServicesUrl = `https://${organizationId}.cke-cs.com/api/v5/${environmentId}`;
+            // Set up the comments endpoint with the correct path
+            const documentId = cloudServicesConfig.documentId || 'default-document';
+            // Ensure the document exists before proceeding
+            await this._ensureDocumentExists(documentId);
+            this._commentsEndpoint = `${this._cloudServicesUrl}/documents/${documentId}/comments`;
+            console.log('CloudServicesCommentsAdapter initialized with:', {
+                tokenUrl: this._cloudServicesToken,
+                apiUrl: this._cloudServicesUrl,
+                endpoint: this._commentsEndpoint
+            });
+            // Load initial comments
+            await this._loadComments();
+        } catch (error) {
+            console.error('CloudServicesCommentsAdapter initialization error:', error);
+        }
         return Promise.resolve();
     }
     /**
+   * Fetch helper that adds authorization headers
+   */ async _fetchWithAuth(url, options = {}) {
+        // The token URL contains the actual token we need to extract
+        const token = this._cloudServicesToken.split('/').pop()?.split('?')[0] || '';
+        const headers = {
+            ...options.headers,
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        };
+        return fetch(url, {
+            ...options,
+            headers
+        });
+    }
+    /**
+   * Loads comments from the server into local cache
+   */ async _loadComments() {
+        try {
+            console.log('Loading comments from:', this._commentsEndpoint);
+            const response = await this._fetchWithAuth(this._commentsEndpoint);
+            if (!response.ok) {
+                throw new Error(`Failed to load comments: ${response.statusText}`);
+            }
+            const comments = await response.json();
+            // Clear and repopulate cache
+            this._localCache.clear();
+            comments.forEach((comment)=>{
+                this._localCache.set(comment.id, comment);
+            });
+            console.log(`Loaded ${comments.length} comments from cloud`);
+        } catch (error) {
+            console.error('Error loading comments from cloud:', error);
+        }
+    }
+    /**
    * @inheritDoc
-   */ addComment(commentData) {
+   */ async addComment(commentData) {
         const comment = {
-            ...commentData,
             id: commentData.id || Date.now().toString(),
             content: commentData.content || '',
-            authorId: commentData.authorId || '1',
-            authorName: commentData.authorName || 'Test User',
+            authorId: commentData.authorId || '',
+            authorName: commentData.authorName || '',
             createdAt: commentData.createdAt || new Date().toISOString()
         };
-        this._comments.set(comment.id, comment);
-        return Promise.resolve(comment);
+        try {
+            const response = await this._fetchWithAuth(this._commentsEndpoint, {
+                method: 'POST',
+                body: JSON.stringify(comment)
+            });
+            if (!response.ok) {
+                throw new Error(`Failed to add comment: ${response.statusText}`);
+            }
+            const savedComment = await response.json();
+            this._localCache.set(savedComment.id, savedComment);
+            return savedComment;
+        } catch (error) {
+            console.error('Error adding comment to cloud:', error);
+            // Fallback to local storage
+            this._localCache.set(comment.id, comment);
+            return comment;
+        }
     }
     /**
    * @inheritDoc
-   */ updateComment(commentData) {
-        this._comments.set(commentData.id, commentData);
-        return Promise.resolve(commentData);
+   */ async updateComment(commentData) {
+        try {
+            const response = await this._fetchWithAuth(`${this._commentsEndpoint}/${commentData.id}`, {
+                method: 'PUT',
+                body: JSON.stringify(commentData)
+            });
+            if (!response.ok) {
+                throw new Error(`Failed to update comment: ${response.statusText}`);
+            }
+            const updatedComment = await response.json();
+            this._localCache.set(updatedComment.id, updatedComment);
+            return updatedComment;
+        } catch (error) {
+            console.error('Error updating comment in cloud:', error);
+            // Fallback to local storage
+            this._localCache.set(commentData.id, commentData);
+            return commentData;
+        }
     }
     /**
    * @inheritDoc
-   */ removeComment(commentId) {
-        this._comments.delete(commentId);
+   */ async removeComment(commentId) {
+        try {
+            const response = await this._fetchWithAuth(`${this._commentsEndpoint}/${commentId}`, {
+                method: 'DELETE'
+            });
+            if (!response.ok) {
+                throw new Error(`Failed to remove comment: ${response.statusText}`);
+            }
+        } catch (error) {
+            console.error('Error removing comment from cloud:', error);
+        }
+        // Remove from local cache regardless of cloud operation result
+        this._localCache.delete(commentId);
         return Promise.resolve();
     }
     /**
    * @inheritDoc
-   */ getComment(commentId) {
-        const comment = this._comments.get(commentId);
-        if (!comment) {
-            return Promise.resolve({
-                id: commentId,
-                content: '',
-                authorId: '1',
-                authorName: 'Test User',
-                createdAt: new Date().toISOString()
-            });
+   */ async getComment(commentId) {
+        // Try to get from local cache first
+        const cachedComment = this._localCache.get(commentId);
+        if (cachedComment) {
+            return cachedComment;
         }
-        return Promise.resolve(comment);
+        // If not in cache, try to fetch from cloud
+        try {
+            const response = await this._fetchWithAuth(`${this._commentsEndpoint}/${commentId}`);
+            if (!response.ok) {
+                throw new Error(`Failed to get comment: ${response.statusText}`);
+            }
+            const comment = await response.json();
+            this._localCache.set(comment.id, comment);
+            return comment;
+        } catch (error) {
+            console.error(`Error fetching comment ${commentId} from cloud:`, error);
+        }
+        // Return a default comment if fetching fails
+        return {
+            id: commentId,
+            content: '',
+            authorId: '',
+            authorName: 'Unknown User',
+            createdAt: new Date().toISOString()
+        };
     }
     /**
    * @inheritDoc
-   */ getComments() {
-        return Promise.resolve(Array.from(this._comments.values()));
+   */ async getComments() {
+        try {
+            await this._loadComments(); // Refresh from server
+        } catch (error) {
+            console.error('Error refreshing comments from cloud:', error);
+        }
+        return Array.from(this._localCache.values());
+    }
+    /**
+   * Creates the document if it doesn't exist yet
+   */ async _ensureDocumentExists(documentId) {
+        try {
+            // We'll try to create the document directly instead of checking first
+            console.log(`Attempting to create document ${documentId}...`);
+            // Get the current editor data
+            const editorData = this.editor.getData ? this.editor.getData() : '<p>Initial document content</p>';
+            // Get editor configuration
+            const cloudServicesConfig = this.editor.config.get('cloudServices');
+            const bundleVersion = cloudServicesConfig.bundleVersion || 'default-bundle-version';
+            // Create the document with the proper structure according to API docs
+            const createUrl = `${this._cloudServicesUrl}/documents`;
+            const createResponse = await this._fetchWithAuth(createUrl, {
+                method: 'POST',
+                body: JSON.stringify({
+                    id: documentId,
+                    content: {
+                        bundle_version: bundleVersion,
+                        data: editorData,
+                        use_initial_data: true // This allows import without uploaded editor bundle
+                    },
+                    // Default empty arrays for other collections
+                    comments: [],
+                    suggestions: [],
+                    threads: []
+                })
+            });
+            if (createResponse.status === 409) {
+                // 409 Conflict means the document already exists, which is fine
+                console.log(`Document ${documentId} already exists`);
+                return;
+            } else if (!createResponse.ok) {
+                const errorData = await createResponse.json();
+                console.error('Document creation error details:', errorData);
+                throw new Error(`Failed to create document: ${createResponse.statusText}`);
+            }
+            console.log(`Document ${documentId} created successfully`);
+        } catch (error) {
+            console.error('Error ensuring document exists:', error);
+            // Don't throw the error - we'll try to continue anyway
+            console.warn('Continuing without document creation - comments may not work');
+        }
     }
 }
 
@@ -19007,19 +19181,81 @@ class Highlight extends Plugin {
    * @inheritDoc
    */ static get requires() {
         return [
-            CommentsIntegration
+            CloudServicesCommentsAdapter
         ];
     }
     /**
    * @inheritDoc
    */ init() {
         const editor = this.editor;
-        // If the CKEditor Comments plugin is available, set our adapter as the comments adapter
-        if (editor.plugins.has('Comments')) {
-            const commentsIntegration = editor.plugins.get('CommentsIntegration');
-            // Add type assertion to fix the error
-            editor.plugins.get('Comments').adapter = commentsIntegration;
+        // Check if both Users and Comments plugins are available
+        if (editor.plugins.has('Comments') && editor.plugins.has('Users')) {
+            try {
+                // Use only CloudServicesCommentsAdapter
+                const commentsAdapter = editor.plugins.get('CloudServicesCommentsAdapter');
+                console.log('Using Cloud Services Comments Adapter');
+                // Set the adapter on the Comments plugin
+                editor.plugins.get('Comments').adapter = commentsAdapter;
+            } catch (error) {
+                console.error('Error initializing Comments adapter:', error);
+            }
+        } else {
+            console.warn('Comments or Users plugin not available');
         }
+    }
+}
+
+// User initialization plugin
+class UsersInit extends Plugin {
+    constructor(editor){
+        super(editor);
+    }
+    static get pluginName() {
+        return 'UsersInit';
+    }
+    init() {
+        const editor = this.editor;
+        console.log('UsersInit init called');
+        // Try to get user config from comments
+        const userConfig = editor.config.get('comments.user');
+        console.log('User config from editor:', userConfig);
+        try {
+            // Create a properly formatted user object with required fields
+            const userData = {
+                id: userConfig?.id || 'default-user-' + Date.now(),
+                name: userConfig?.name || 'Default User'
+            };
+            console.log('UsersInit: Using user data', userData);
+            // Get Users plugin and add the user
+            try {
+                const usersPlugin = editor.plugins.get('Users');
+                // Add the user and set as current
+                usersPlugin.addUser(userData);
+                usersPlugin.defineMe(userData.id);
+                // Always update the config to ensure consistency
+                editor.config.set('comments.user', userData);
+                console.log('UsersInit: Successfully initialized user with ID:', userData.id);
+            } catch (error) {
+                console.error('UsersInit: Error accessing Users plugin', error);
+            }
+        } catch (error) {
+            console.error('UsersInit: Error processing user data', error);
+        }
+    }
+}
+
+class RooleUsers extends Plugin {
+    static get pluginName() {
+        return 'RooleUsers';
+    }
+    static get requires() {
+        return [
+            UsersInit
+        ];
+    }
+    init() {
+        console.log('RooleUsers plugin initialized');
+    // Forward any needed methods to work with Comments plugin
     }
 }
 
@@ -19027,5 +19263,5 @@ const icons = {
     ckeditor
 };
 
-export { ButtonPlugin, Comments, Editorjs, Highlight, icons };
+export { ButtonPlugin, CloudServicesCommentsAdapter, Comments, Editorjs, Highlight, RooleUsers, UsersInit, icons };
 //# sourceMappingURL=index.js.map

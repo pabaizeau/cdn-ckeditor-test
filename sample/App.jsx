@@ -200,33 +200,10 @@ const initialEditorData = {
   "version": "2.27.2"
 };
 
-// User initialization plugin
-class UsersInit {
-  constructor(editor) {
-    this.editor = editor;
-  }
-
-  static get pluginName() {
-    return 'UsersInit';
-  }
-
-  init() {
-    const users = [
-      {
-        id: '1',
-        name: 'Test User'
-      }
-    ];
-
-    const { editor } = this;
-
-    // Initialize the Users plugin with the predefined list of users.
-    editor.plugins.get('Users').addUser(users[0]);
-
-    // Set the current user.
-    editor.plugins.get('Users').defineMe(users[0].id);
-  }
-}
+const userInfo = {
+  id: '1',
+  name: 'CKEditor User'
+};
 
 export default function App() {
   // Add refs for the collaboration UI containers
@@ -246,22 +223,66 @@ export default function App() {
     version: '44.2.1',
     premium: true,
     plugins: {
+	// 	CKEditorjs: [
+    //    "https://cdn.jsdelivr.net/gh/pabaizeau/cdn-ckeditor-test@v1.0.1/dist/browser/index.umd.js"
+    //     ],
       RoolePlugin: () => import('../dist/browser/index.umd.js'),
       RoolePluginCss: () => import('../dist/browser/index-editor.css'),
-      checkPluginLoaded: () => {
-        return window.RoolePlugin;
-      }
+    //   checkPluginLoaded: () => {
+    //     return window.RoolePlugin;
+    //   }
     }
   });
-
 
   useEffect(() => {
     if (cloud.status === 'success' && !isLayoutReady) {
       setIsLayoutReady(true);
+
+      // Check if UsersInit plugin is available
+      if (window.CKEditorjs && window.CKEditorjs.UsersInit) {
+        console.log('UsersInit plugin is available');
+      } else {
+        console.warn('UsersInit plugin not found');
+      }
     }
   }, [cloud.status]);
 
+  useEffect(() => {
+    const uploadBundle = async () => {
+      // Import the bundle uploader when needed
+      const { uploadEditorBundle } = await import('../src/utils/bundleUploader.ts');
 
+      // Organization and environment details - using your existing values
+      const organizationId = 'a4d_gi5g05l6';
+      const environmentId = '0cGMGt0uxQfN8gFSt-Rk';
+
+      // Extract token from your tokenUrl
+      const tokenParts = 'https://a4d_gi5g05l6.cke-cs.com/token/dev/a98fc04beabff5b700201a80eb5abb708a9b9e8a922c91a32e8bac269712?limit=10'.split('/');
+      const token = tokenParts[tokenParts.length - 1].split('?')[0];
+
+      // Use the same bundleVersion as in your editor config
+      const bundleVersion = '1.0.0';
+
+      console.log('Attempting to upload editor bundle...');
+      const success = await uploadEditorBundle(
+        organizationId,
+        environmentId,
+        token,
+        bundleVersion
+      );
+
+      if (success) {
+        console.log('Bundle upload complete, document creation should now work');
+      } else {
+        console.warn('Bundle upload failed, document features may not work correctly');
+      }
+    };
+
+    // Call the upload function
+    if (cloud.status === 'ready') {
+      uploadBundle();
+    }
+  }, [cloud.status]);
 
   if (cloud.status === 'error') {
     return <div>Error!</div>;
@@ -313,7 +334,7 @@ export default function App() {
     RevisionHistory
   } = cloud.CKEditorPremiumFeatures;
 
-  const { ButtonPlugin, Editorjs } = window.CKEditorjs;
+  const { ButtonPlugin, Editorjs, UsersInit, CloudServicesCommentsAdapter } = window.CKEditorjs;
 
   return (
     <div className="main-container">
@@ -327,12 +348,11 @@ export default function App() {
                   editor={ClassicEditor}
                   data={'<p>Hello world!</p>'}
                   onReady={editor => {
-                    console.log('Editor is ready to use!', editor);
                     editorRef.current = editor;
                     setEditor(editor);
                   }}
                   config={{
-                    licenseKey: 'eyJhbGciOiJFUzI1NiJ9.eyJleHAiOjE3NzE2MzE5OTksImp0aSI6IjA3NDYzY2E5LTQ3NjgtNDAzOC1iMTFmLWNlMTI3MzI5NWFiNyIsImxpY2Vuc2VkSG9zdHMiOlsiMTI3LjAuMC4xIiwibG9jYWxob3N0IiwiMTkyLjE2OC4qLioiLCIxMC4qLiouKiIsIjE3Mi4qLiouKiIsIioudGVzdCIsIioubG9jYWxob3N0IiwiKi5sb2NhbCJdLCJ1c2FnZUVuZHBvaW50IjoiaHR0cHM6Ly9wcm94eS1ldmVudC5ja2VkaXRvci5jb20iLCJkaXN0cmlidXRpb25DaGFubmVsIjpbImNsb3VkIiwiZHJ1cGFsIl0sIndoaXRlTGFiZWwiOnRydWUsImxpY2Vuc2VUeXBlIjoiZGV2ZWxvcG1lbnQiLCJmZWF0dXJlcyI6WyJEUlVQIiwiRE8iLCJGUCIsIlNDIiwiVE9DIiwiVFBMIiwiUE9FIiwiQ0MiLCJNRiIsIlNFRSIsIkNNVCIsIlRDIiwiUkgiXSwidmMiOiJiODU3ZTM4OSJ9.rZuMKgoqG4QcxTyjsbhPKUy_gyjfre4bwdSba-lFxPziUi0F-Ln_T2S9vtx65ggXx8Vn1HYKa3Mb4VdGRA5Jyg',
+                    licenseKey: 'eyJhbGciOiJFUzI1NiJ9.eyJleHAiOjE3NDI1MTUxOTksImp0aSI6IjEyNDYxZGFjLTRlNDYtNDNkZi1hN2M3LTgyNGZmZWIxZTU2OSIsInVzYWdlRW5kcG9pbnQiOiJodHRwczovL3Byb3h5LWV2ZW50LmNrZWRpdG9yLmNvbSIsImRpc3RyaWJ1dGlvbkNoYW5uZWwiOlsiY2xvdWQiLCJkcnVwYWwiLCJzaCJdLCJ3aGl0ZUxhYmVsIjp0cnVlLCJsaWNlbnNlVHlwZSI6InRyaWFsIiwiZmVhdHVyZXMiOlsiKiJdLCJ2YyI6IjMwMjI5MTg3In0.uyJSkWJKEsY7bII0vITUJ8M0UWNI_4vSegsLXHWTZw9Zx7iC4EnpYlbx-qDuRkOPw0BluRg5_8NJ-6N4HJbU1A',
                     plugins: [
                       Autoformat,
                       Bold,
@@ -368,13 +388,20 @@ export default function App() {
                       ButtonPlugin,
                       Editorjs,
 
-                      // Collaboration plugins
+                      // Make sure CloudServices is before CloudServicesCommentsAdapter
+                      CloudServices,
+					  CloudServicesCommentsAdapter,
+
+                      // Add UsersInit before any comments plugins
+                      UsersInit,
+                    //   CloudServicesCommentsAdapter,
+
+                      // Then the collaboration plugins
                       Comments,
                       CommentsUI,
                       TrackChanges,
                       TrackChangesData,
                       RevisionHistory,
-                      UsersInit,
                     ],
                     toolbar: [
                       'undo',
@@ -407,6 +434,10 @@ export default function App() {
                       'highlight'
                     ],
                     comments: {
+                      user: {
+                        id: userInfo.id,
+                        name: userInfo.name
+                      },
                       editorConfig: {
                         extraPlugins: [Bold, Italic, Autoformat]
                       }
@@ -422,7 +453,15 @@ export default function App() {
                     },
                     ...{
                       initialData: JSON.stringify(editorData, null, 2)
-                    }
+                    },
+                    cloudServices: {
+                      tokenUrl: 'https://a4d_gi5g05l6.cke-cs.com/token/dev/a98fc04beabff5b700201a80eb5abb708a9b9e8a922c91a32e8bac269712?limit=10',
+                      uploadUrl: 'https://a4d_gi5g05l6.cke-cs.com/easyimage/upload/',
+                      documentId: 'my-document-123',
+                      webSocketUrl: 'wss://a4d_gi5g05l6.cke-cs.com/ws/',
+					  bundleVersion: '1.0.0'
+
+                    },
                   }}
                   onChange={(event, editor) => {
                     const data = editor.getData();

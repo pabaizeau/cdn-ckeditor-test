@@ -1,5 +1,5 @@
 import { Plugin } from 'ckeditor5';
-import CommentsIntegration from './CommentsIntegration';
+import CloudServicesCommentsAdapter from './CloudServicesCommentsAdapter';
 
 // Add this interface to properly type the CKEditor Comments plugin
 interface CommentsPlugin {
@@ -21,7 +21,7 @@ export default class Comments extends Plugin {
    * @inheritDoc
    */
   public static get requires() {
-    return [CommentsIntegration] as const;
+    return [CloudServicesCommentsAdapter] as const;
   }
 
   /**
@@ -30,11 +30,20 @@ export default class Comments extends Plugin {
   public init(): void {
     const editor = this.editor;
 
-    // If the CKEditor Comments plugin is available, set our adapter as the comments adapter
-    if (editor.plugins.has('Comments')) {
-      const commentsIntegration = editor.plugins.get('CommentsIntegration');
-      // Add type assertion to fix the error
-      (editor.plugins.get('Comments') as unknown as CommentsPlugin).adapter = commentsIntegration;
+    // Check if both Users and Comments plugins are available
+    if (editor.plugins.has('Comments') && editor.plugins.has('Users')) {
+      try {
+        // Use only CloudServicesCommentsAdapter
+        const commentsAdapter = editor.plugins.get('CloudServicesCommentsAdapter');
+        console.log('Using Cloud Services Comments Adapter');
+
+        // Set the adapter on the Comments plugin
+        (editor.plugins.get('Comments') as unknown as CommentsPlugin).adapter = commentsAdapter;
+      } catch (error) {
+        console.error('Error initializing Comments adapter:', error);
+      }
+    } else {
+      console.warn('Comments or Users plugin not available');
     }
   }
 }

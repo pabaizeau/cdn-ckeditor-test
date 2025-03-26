@@ -1,5 +1,4 @@
 import Comments from '../../src/Comments/Comments';
-import CommentsIntegration from '../../src/Comments/CommentsIntegration';
 import ClassicEditor from '@ckeditor/ckeditor5-editor-classic/src/classiceditor';
 import { Paragraph } from '@ckeditor/ckeditor5-paragraph';
 
@@ -28,7 +27,4 @@ describe('Comments', () => {
     expect(editor.plugins.get('RooleComments')).to.be.instanceOf(Comments);
   });
 
-  it('should have CommentsIntegration plugin loaded', () => {
-    expect(editor.plugins.get('CommentsIntegration')).to.be.instanceOf(CommentsIntegration);
-  });
 });
